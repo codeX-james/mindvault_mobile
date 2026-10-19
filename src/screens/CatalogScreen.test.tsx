@@ -113,6 +113,28 @@ describe("CatalogScreen search debounce", () => {
       expect.objectContaining({ search: "stella" }),
     );
   });
+
+  it("waits for a pause before refetching when price bounds are typed", async () => {
+    const screen = renderCatalog();
+    await waitFor(() => expect(mockedFetchCatalog).toHaveBeenCalledTimes(1));
+    mockedFetchCatalog.mockClear();
+
+    const input = screen.getByLabelText("Maximum price");
+    for (const value of ["1", "12", "12.", "12.5", "12.50"]) {
+      fireEvent.changeText(input, value);
+    }
+
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+    expect(mockedFetchCatalog).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+    await waitFor(() => expect(mockedFetchCatalog).toHaveBeenCalledTimes(1));
+    expect(mockedFetchCatalog).toHaveBeenCalledWith({ maxPrice: "12.5" });
+  });
 });
 
 function renderCatalog() {

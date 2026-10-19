@@ -338,6 +338,9 @@ export function CatalogScreen({ navigation }: CatalogScreenProps) {
   const [registryCount, setRegistryCount] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Price bounds are debounced like search so typing "12.50" sends one request.
+  const [debouncedMinPrice, setDebouncedMinPrice] = useState("");
+  const [debouncedMaxPrice, setDebouncedMaxPrice] = useState("");
   const [verification, setVerification] =
     useState<VerificationFilter>(DEFAULT_VERIFICATION);
   const [resourceType, setResourceType] = useState<ResourceTypeFilter>(
@@ -371,6 +374,8 @@ export function CatalogScreen({ navigation }: CatalogScreenProps) {
         setResourceType(restored.resourceType);
         setMinPrice(restored.minPrice);
         setMaxPrice(restored.maxPrice);
+        setDebouncedMinPrice(restored.minPrice);
+        setDebouncedMaxPrice(restored.maxPrice);
         setSort(restored.sort);
         filtersRestored.current = true;
         setIsRestoring(false);
@@ -416,7 +421,7 @@ export function CatalogScreen({ navigation }: CatalogScreenProps) {
       filters.resourceType = resourceType;
     }
     if (sort !== DEFAULT_SORT) filters.sort = sort;
-    const range = parsePriceRange(minPrice, maxPrice);
+    const range = parsePriceRange(debouncedMinPrice, debouncedMaxPrice);
     if (!range.isInvalid) {
       if (range.min !== null) filters.minPrice = String(range.min);
       if (range.max !== null) filters.maxPrice = String(range.max);
@@ -450,12 +455,20 @@ export function CatalogScreen({ navigation }: CatalogScreenProps) {
         setRefreshing(false);
       }
     }
-  }, [debouncedSearch, verification, resourceType, minPrice, maxPrice, sort, isRestoring]);
+  }, [debouncedSearch, verification, resourceType, debouncedMinPrice, debouncedMaxPrice, sort, isRestoring]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [search]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedMinPrice(minPrice);
+      setDebouncedMaxPrice(maxPrice);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [minPrice, maxPrice]);
 
   useEffect(() => {
     void loadData();
