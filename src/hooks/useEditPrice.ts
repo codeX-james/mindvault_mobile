@@ -76,6 +76,7 @@ export function useEditPrice() {
   const submitSigned = useCallback(async (signedXdr: string) => {
     if (!pendingTransaction) return false;
     if (signedXdr === pendingTransaction.unsignedXdr) {
+      setPendingTransaction(null);
       setError("The transaction must be signed before submission.");
       return false;
     }
@@ -86,6 +87,9 @@ export function useEditPrice() {
       setStatus("idle");
       return true;
     } catch (err) {
+      // Close the signing sheet so the card can show the error; saving again
+      // prepares a fresh transaction.
+      setPendingTransaction(null);
       setError(err instanceof Error ? err.message : "Unable to update price.");
       setStatus("idle");
       return false;

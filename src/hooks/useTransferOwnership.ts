@@ -81,7 +81,9 @@ export function useTransferOwnership(): UseTransferOwnershipResult {
   async function submitSigned(signedXdr: string): Promise<void> {
     if (!pendingTransaction) return;
     if (signedXdr === pendingTransaction.unsignedXdr) {
+      setPendingTransaction(null);
       setError("The transaction must be signed before submission.");
+      setStep("error");
       return;
     }
     try {
@@ -95,6 +97,8 @@ export function useTransferOwnership(): UseTransferOwnershipResult {
       setTxHash(result.txHash ?? null);
       setStep("done");
     } catch (err) {
+      // Close the signing sheet so the modal underneath can show the error.
+      setPendingTransaction(null);
       setError(err instanceof Error ? err.message : "Transfer failed.");
       setStep("error");
     }

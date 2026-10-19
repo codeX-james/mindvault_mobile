@@ -66,6 +66,7 @@ export function SignTransactionSheet({
   const [secret, setSecret] = useState("");
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [signError, setSignError] = useState<string | null>(null);
   const validation = useMemo(() => validateStellarSecret(secret), [secret]);
   const isNonProduction = /test|future network/i.test(networkPassphrase);
 
@@ -74,6 +75,7 @@ export function SignTransactionSheet({
       setSecret("");
       setTouched(false);
       setBusy(false);
+      setSignError(null);
     }
   }, [visible]);
 
@@ -88,8 +90,18 @@ export function SignTransactionSheet({
     if (!validation.isValid || !unsignedXdr) return;
 
     setBusy(true);
+    setSignError(null);
+    let signedXdr: string;
     try {
-      const signedXdr = signTransactionXdr(unsignedXdr, secret, networkPassphrase);
+      signedXdr = signTransactionXdr(unsignedXdr, secret, networkPassphrase);
+    } catch {
+      // e.g. a malformed transaction or a passphrase that doesn't match it.
+      setSignError("Couldn't sign this transaction. Check the key and network, then try again.");
+      setSecret("");
+      setBusy(false);
+      return;
+    }
+    try {
       setSecret("");
       await onSigned(signedXdr);
     } finally {
@@ -123,6 +135,9 @@ export function SignTransactionSheet({
           />
           {touched && !validation.isValid ? (
             <Text accessibilityRole="alert" style={styles.error}>{validation.errorMessage}</Text>
+          ) : null}
+          {signError ? (
+            <Text accessibilityRole="alert" style={styles.error}>{signError}</Text>
           ) : null}
           <View style={styles.actions}>
             <Pressable

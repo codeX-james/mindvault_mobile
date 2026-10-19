@@ -117,3 +117,17 @@ it("clears the secret on cancel and when reopened", () => {
   );
   expect(screen.getByLabelText("Stellar secret key").props.value).toBe("");
 });
+
+it("shows an error in the sheet and does not submit when signing fails", async () => {
+  mockedSign.mockImplementationOnce(() => {
+    throw new Error("XDR Read Error: unknown ArmType");
+  });
+  const screen = renderSheet();
+
+  fireEvent.changeText(screen.getByLabelText("Stellar secret key"), VALID_SECRET);
+  fireEvent.press(screen.getByText("Sign"));
+
+  expect(await screen.findByText(/Couldn't sign this transaction/)).toBeTruthy();
+  expect(screen.onSigned).not.toHaveBeenCalled();
+  expect(screen.getByLabelText("Stellar secret key").props.value).toBe("");
+});
