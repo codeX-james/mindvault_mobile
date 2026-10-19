@@ -14,8 +14,18 @@ export interface UseTransferOwnershipResult {
   destinationAddress: string;
   setDestinationAddress: (address: string) => void;
   isValidAddress: boolean;
+  pendingTransaction: PendingOwnershipTransaction | null;
   start: (resourceId: string) => Promise<void>;
+  submitSigned: (signedXdr: string) => Promise<void>;
+  cancelSigning: () => void;
   reset: () => void;
+}
+
+export interface PendingOwnershipTransaction {
+  resourceId: string;
+  destination: string;
+  unsignedXdr: string;
+  networkPassphrase?: string;
 }
 
 /**
@@ -42,6 +52,7 @@ export function useTransferOwnership(): UseTransferOwnershipResult {
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [destinationAddress, setDestinationAddress] = useState("");
+  const [pendingTransaction, setPendingTransaction] = useState<PendingOwnershipTransaction | null>(null);
 
   const isValidAddress = validateStellarAddress(destinationAddress);
 
@@ -58,20 +69,29 @@ export function useTransferOwnership(): UseTransferOwnershipResult {
     try {
       // Step 1: Prepare
       setStep("preparing");
-      const { unsignedXdr } = await prepareOwnershipTransfer(resourceId, destination);
-
-      // Step 2: Sign
+      const { unsignedXdr, networkPassphrase } = await prepareOwnershipTransfer(resourceId, destination);
       setStep("signing");
-      const signedXdr = await signXdr(unsignedXdr);
+      setPendingTransaction({ resourceId, destination, unsignedXdr, networkPassphrase });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Transfer failed.");
+      setStep("error");
+    }
+  }
 
-      // Step 3: Submit
+  async function submitSigned(signedXdr: string): Promise<void> {
+    if (!pendingTransaction) return;
+    if (signedXdr === pendingTransaction.unsignedXdr) {
+      setError("The transaction must be signed before submission.");
+      return;
+    }
+    try {
       setStep("submitting");
       const result = await submitOwnershipTransfer(
-        resourceId,
+        pendingTransaction.resourceId,
         signedXdr,
-        destination
+        pendingTransaction.destination
       );
-
+      setPendingTransaction(null);
       setTxHash(result.txHash ?? null);
       setStep("done");
     } catch (err) {
@@ -80,11 +100,18 @@ export function useTransferOwnership(): UseTransferOwnershipResult {
     }
   }
 
+  function cancelSigning() {
+    setPendingTransaction(null);
+    setError(null);
+    setStep("idle");
+  }
+
   function reset() {
     setStep("idle");
     setError(null);
     setTxHash(null);
     setDestinationAddress("");
+    setPendingTransaction(null);
   }
 
   return {
@@ -94,16 +121,10 @@ export function useTransferOwnership(): UseTransferOwnershipResult {
     destinationAddress,
     setDestinationAddress,
     isValidAddress,
+    pendingTransaction,
     start,
+    submitSigned,
+    cancelSigning,
     reset,
   };
-}
-
-/**
- * Mobile XDR signing stub.
- * Replace with Freighter deep-link, WalletConnect, or local keypair for dev.
- */
-async function signXdr(xdr: string): Promise<string> {
-  // TODO: integrate mobile wallet signing
-  return xdr;
 }

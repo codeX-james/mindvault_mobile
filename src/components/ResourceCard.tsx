@@ -1,6 +1,5 @@
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useMemo, useState } from "react";
-import { validateStellarSecret } from "../utils/validateStellarSecret";
 import {
   ActivityIndicator,
   Pressable,
@@ -16,6 +15,7 @@ import { useEditPrice, validatePrice } from "../hooks/useEditPrice";
 import { shareResource } from "../utils/shareResource";
 import type { ThemeColors } from "../theme";
 import { useAppTheme } from "../theme/ThemeProvider";
+import { SignTransactionSheet } from "./SignTransactionSheet";
 
 interface ResourceCardProps {
   resource: Resource;
@@ -70,12 +70,18 @@ export function ResourceCard({
   const { colors, shared, typography } = useAppTheme();
   const verification = verificationStyle(resource.verificationStatus, colors);
   const onchain = onchainStyle(resource.onchainStatus, colors);
-  const { status, error, editPrice, resetError } = useEditPrice();
+  const {
+    status,
+    error,
+    pendingTransaction,
+    preparePriceEdit,
+    submitSigned,
+    cancelSigning,
+    resetError,
+  } = useEditPrice();
   const [editing, setEditing] = useState(false);
   const [newPrice, setNewPrice] = useState(resource.price);
   const [priceTouched, setPriceTouched] = useState(false);
-  const [secretKey, setSecretKey] = useState("");
-  const [secretKeyTouched, setSecretKeyTouched] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Sync newPrice from resource.price when it changes and not actively editing
@@ -142,8 +148,6 @@ export function ResourceCard({
     }
   }
 
-  const secretKeyValidation = useMemo(() => validateStellarSecret(secretKey), [secretKey]);
-
   // Inline price validation error (shown after the field has been touched)
   const priceValidationError = priceTouched ? validatePrice(newPrice) : null;
 
@@ -157,17 +161,14 @@ export function ResourceCard({
       return;
     }
 
-    if (!secretKeyValidation.isValid) {
-      setSecretKeyTouched(true);
-      return;
-    }
+    await preparePriceEdit(resource.id, newPrice);
+  }
 
-    const ok = await editPrice(resource.id, newPrice, secretKey);
+  async function handleSignedPrice(signedXdr: string) {
+    const ok = await submitSigned(signedXdr);
     if (ok) {
       setSuccessMessage("Price updated successfully.");
       setEditing(false);
-      setSecretKey("");
-      setSecretKeyTouched(false);
       setPriceTouched(false);
       // Notify parent so it can update its local state (issue #65)
       onPriceUpdated?.(resource.id, newPrice);
@@ -177,13 +178,7 @@ export function ResourceCard({
   const isBusy = status !== "idle";
   const isSaveDisabled =
     isBusy ||
-    validatePrice(newPrice) !== null ||
-    !secretKeyValidation.isValid;
-
-  const secretKeyFieldError =
-    secretKeyTouched && secretKey.length > 0 && !secretKeyValidation.isValid
-      ? secretKeyValidation.errorMessage
-      : null;
+    validatePrice(newPrice) !== null;
 
   const statusLabel =
     status === "preparing"
@@ -286,29 +281,12 @@ export function ResourceCard({
                 {priceValidationError}
               </Text>
             ) : null}
-            <TextInput
-              value={secretKey}
-              onChangeText={(text) => {
-                setSecretKey(text);
-                if (!secretKeyTouched) setSecretKeyTouched(true);
-              }}
-              onBlur={() => setSecretKeyTouched(true)}
-              placeholder="Stellar secret key"
-              placeholderTextColor={colors.textSubtle}
-              secureTextEntry
-              style={dynamicStyles.input}
-              editable={!isBusy}
-              accessibilityLabel="Stellar secret key"
-              accessibilityHint="Enter your Stellar secret key to sign the price update transaction"
-            />
             <View style={styles.actionRow}>
               <Pressable
                 onPress={() => {
                   setEditing(false);
                   setPriceTouched(false);
                   setNewPrice(resource.price);
-                  setSecretKey("");
-                  setSecretKeyTouched(false);
                   resetError();
                 }}
                 style={[shared.button, dynamicStyles.secondaryButton]}
@@ -351,15 +329,6 @@ export function ResourceCard({
                 accessibilityRole="none"
               >
                 {statusLabel}
-              </Text>
-            ) : null}
-            {secretKeyFieldError ? (
-              <Text
-                style={dynamicStyles.errorText}
-                accessibilityLiveRegion="assertive"
-                accessibilityRole="alert"
-              >
-                {secretKeyFieldError}
               </Text>
             ) : null}
             {error ? (
@@ -421,6 +390,13 @@ export function ResourceCard({
           {successMessage}
         </Text>
       ) : null}
+      <SignTransactionSheet
+        visible={pendingTransaction !== null}
+        unsignedXdr={pendingTransaction?.unsignedXdr ?? ""}
+        networkPassphrase={pendingTransaction?.networkPassphrase}
+        onCancel={cancelSigning}
+        onSigned={handleSignedPrice}
+      />
     </View>
   );
 }

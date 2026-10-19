@@ -38,3 +38,14 @@ However, to enable rapid development and testing (as requested in Issue #16), we
 Note: the `stellar:pubnet` in step 3 above is just an illustrative example for the not-yet-implemented WalletConnect flow — it is **not** the app's actual current default. The app currently defaults to **Testnet**, configured via `app.json`'s `expo.extra.networkPassphrase`. See the [README's "Stellar Network Configuration" section](./README.md#stellar-network-configuration) for the full breakdown, including where each screen/flow gets its passphrase from and the one exception (register/price-edit flows take the passphrase from the backend's API response).
 
 `DevSignerScreen` (the PoC above) always hardcodes testnet regardless of any config, by design — it's a dev-only tool and isn't affected by `app.json`.
+# Shared mobile signing sheet
+
+Ownership transfers, resource registration, and price edits all prepare an
+unsigned transaction with the publisher API, then pass the returned XDR and
+network passphrase to `SignTransactionSheet`. The sheet validates and masks a
+locally entered Stellar secret, signs only in memory, and clears that secret on
+success, cancellation, and unmount. It never logs or persists secret material.
+
+The network passphrase is shown before signing. Test and development networks
+also display an explicit warning. Cancellation returns the parent flow to its
+idle state, and submission rejects an unchanged (unsigned) XDR.
