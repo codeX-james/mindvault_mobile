@@ -9,6 +9,7 @@ import { RootNavigator } from "./src/navigation";
 import { getNavigationTheme } from "./src/theme";
 import { ThemeProvider, useAppTheme } from "./src/theme/ThemeProvider";
 import { logError } from "./src/utils/errorLogger";
+import { ErrorBoundary } from "./src/components/ErrorBoundary";
 
 function AppContent() {
   const { colors, colorScheme, isLoading } = useAppTheme();
@@ -42,7 +43,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <AppContent />
+        <ErrorBoundary>
+          <AppContent />
+        </ErrorBoundary>
       </ThemeProvider>
     </SafeAreaProvider>
   );
