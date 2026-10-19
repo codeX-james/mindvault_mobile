@@ -56,6 +56,28 @@ afterEach(() => {
 });
 
 describe("CatalogScreen search debounce", () => {
+  it("renders every supported sort chip", async () => {
+    const screen = renderCatalog();
+    await waitFor(() => expect(mockedFetchCatalog).toHaveBeenCalled());
+    for (const label of ["Newest", "Price: Low to high", "Price: High to low", "Title"]) {
+      expect(screen.getByLabelText(label)).toBeTruthy();
+    }
+  });
+
+  it("sends sorting and price bounds to the server without filtering its response locally", async () => {
+    mockedFetchCatalog.mockResolvedValue([makeResource("r1", "Server result")]);
+    const screen = renderCatalog();
+    await waitFor(() => expect(mockedFetchCatalog).toHaveBeenCalledTimes(1));
+
+    fireEvent.press(screen.getByLabelText("Price: High to low"));
+    fireEvent.changeText(screen.getByLabelText("Minimum price"), "5");
+
+    await waitFor(() =>
+      expect(mockedFetchCatalog).toHaveBeenLastCalledWith({ sort: "price_desc", minPrice: "5" })
+    );
+    expect(screen.getByText("Server result")).toBeTruthy();
+  });
+
   it("does not refetch on every keystroke, only after typing pauses", async () => {
     const { getByLabelText } = render(
       <ThemeProvider>

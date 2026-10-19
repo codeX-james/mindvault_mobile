@@ -6,6 +6,7 @@ import { getApiKey, storeApiKey, clearApiKey } from "../services/secureStorage";
 import type { CatalogFilters, RegistryStatus, Resource } from "../types";
 import { extractApiErrorMessage } from "../utils/errorLogger";
 import { validateStellarSecret } from "../utils/validateStellarSecret";
+import { parsePriceRange } from "../utils/priceRange";
 
 let apiBaseUrl = getDefaultApiBaseUrl();
 
@@ -28,6 +29,15 @@ export function buildQuery(filters?: CatalogFilters): string {
   }
   if (filters.resourceType && filters.resourceType !== "all") {
     params.set("resourceType", filters.resourceType);
+  }
+  if (["newest", "price_asc", "price_desc", "title"].includes(filters.sort ?? "")) {
+    params.set("sort", filters.sort!);
+  }
+
+  const range = parsePriceRange(filters.minPrice ?? "", filters.maxPrice ?? "");
+  if (!range.isInvalid) {
+    if (range.min !== null) params.set("minPrice", String(range.min));
+    if (range.max !== null) params.set("maxPrice", String(range.max));
   }
 
   const qs = params.toString();

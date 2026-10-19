@@ -25,7 +25,12 @@ export interface CatalogFilters {
   search?: string;
   verificationStatus?: "all" | VerificationStatus;
   resourceType?: "all" | "file" | "link";
+  sort?: CatalogSort;
+  minPrice?: string;
+  maxPrice?: string;
 }
+
+export type CatalogSort = "newest" | "price_asc" | "price_desc" | "title";
 
 export interface RegistryStatus {
   resourceCount: number;

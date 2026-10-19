@@ -53,13 +53,17 @@ describe('buildQuery', () => {
     expect(query.startsWith('?')).toBe(true);
   });
 
-  it('ignores extra properties not in CatalogFilters', () => {
-    const filters: any = {
-      search: 'test',
-      minPrice: '1.00',
-      maxPrice: '10.00',
-    };
-    expect(buildQuery(filters)).toBe('?search=test');
+  it('includes valid sort and price filters', () => {
+    expect(buildQuery({ sort: 'price_asc', minPrice: '1.00', maxPrice: '10.00' }))
+      .toBe('?sort=price_asc&minPrice=1&maxPrice=10');
+  });
+
+  it('does not send an inverted price range', () => {
+    expect(buildQuery({ search: 'test', minPrice: '10', maxPrice: '1' })).toBe('?search=test');
+  });
+
+  it('ignores invalid sort and price values at runtime', () => {
+    expect(buildQuery({ sort: 'random', minPrice: '-1', maxPrice: 'nope' } as any)).toBe('');
   });
 
   it('omits search when it is empty string', () => {
